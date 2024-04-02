@@ -1,0 +1,10 @@
+[package]
+name = "feedback"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+pyo3 = { version = "0.21", features = ["extension-module"] }
+serde = "1.0.197"
+thiserror = "1.0.58"
+tracing = "0.1.40"
