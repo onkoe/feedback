@@ -3,6 +3,10 @@ name = "feedback"
 version = "0.1.0"
 edition = "2021"
 
+[lib]
+name = "feedback"
+crate-type = ["cdylib", "rlib"]
+
 [dependencies]
 pyo3 = { version = "0.21", features = ["extension-module"] }
 serde = "1.0.197"

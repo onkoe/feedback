@@ -117,3 +117,14 @@ pub struct Science {
 impl Science {
     pub const SUBSYSTEM_BYTE: u8 = 0x03;
 }
+
+#[pymodule]
+fn feedback(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add_class::<Wheels>()?;
+    m.add_class::<Led>()?;
+    m.add_class::<Arm>()?;
+    m.add_class::<Science>()?;
+    m.add_class::<parse::PyMessage>()?;
+    m.add_function(wrap_pyfunction!(parse::pyparse, m)?)?;
+    Ok(())
+}
