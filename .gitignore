@@ -1,1 +1,6 @@
+# don't upload the folder with builds..!
 /target
+
+# libraries typically don't use a lock file.
+# they don't really need to repro builds
+Cargo.lock 
