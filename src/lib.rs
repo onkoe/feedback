@@ -23,6 +23,7 @@ pub mod parse;
 /// For the Rover, the Wheels struct represents the current state of each of the six wheels.
 /// Each `wheelx` value is a u8, with the neutral position being 126.
 #[pyclass]
+#[derive(Debug, Clone, Copy)]
 pub struct Wheels {
     pub wheel0: u8,
     pub wheel1: u8,
@@ -67,6 +68,7 @@ impl Wheels {
 
 /// The flashing LED on the top of the Rover
 #[pyclass]
+#[derive(Debug, Clone, Copy)]
 pub struct Led {
     pub red: u8,
     pub green: u8,
@@ -82,6 +84,7 @@ impl Led {
 /// The little robotic arm on the sticking out of the Rover
 /// old capstooOOOone
 #[pyclass]
+#[derive(Debug, Clone, Copy)]
 pub struct Arm {
     pub bicep: u8,
     pub forearm: u8,
@@ -100,6 +103,7 @@ impl Arm {
 /// The science package on the Rover, including the utilities needed to perform
 /// field experiments.
 #[pyclass]
+#[derive(Debug, Clone, Copy)]
 pub struct Science {
     big_actuator: u8,
     drill: u8,
@@ -112,12 +116,4 @@ pub struct Science {
 #[pymethods]
 impl Science {
     pub const SUBSYSTEM_BYTE: u8 = 0x03;
-}
-
-#[cfg(test)]
-mod tests {
-    // use super::*;
-
-    #[test]
-    fn it_works() {}
 }

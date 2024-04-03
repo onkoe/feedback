@@ -2,6 +2,8 @@
 //!
 //! A module that parses a given slice into a valid message.
 
+use pyo3::{exceptions::PyValueError, prelude::*};
+
 use crate::{error::ParsingError, Arm, Led, Science, Wheels};
 
 /// Any kind of message that should be sent to/from the rover.
@@ -12,8 +14,43 @@ pub enum Message {
     Science(Science),
 }
 
+/// A PyO3-friendly version of the `Message` enum.
+#[doc(hidden)]
+#[pyclass]
+pub enum PyMessage {
+    Wheels { wheels: Wheels },
+    Led { led: Led },
+    Arm { arm: Arm },
+    Science { science: Science },
+}
+
+/// this is some nonsense... but it's required nonsense.
+/// see [pyo3 issue #3748](https://github.com/PyO3/pyo3/issues/3748) for info
+impl From<PyMessage> for Message {
+    fn from(val: PyMessage) -> Self {
+        match val {
+            PyMessage::Wheels { wheels } => Message::Wheels(wheels),
+            PyMessage::Led { led } => Message::Led(led),
+            PyMessage::Arm { arm } => Message::Arm(arm),
+            PyMessage::Science { science } => Message::Science(science),
+        }
+    }
+}
+
+/// again. nonsense
+impl From<Message> for PyMessage {
+    fn from(val: Message) -> Self {
+        match val {
+            Message::Wheels(wheels) => PyMessage::Wheels { wheels },
+            Message::Led(led) => PyMessage::Led { led },
+            Message::Arm(arm) => PyMessage::Arm { arm },
+            Message::Science(science) => PyMessage::Science { science },
+        }
+    }
+}
+
 /// Parse an input slice into a valid message.
-pub const fn parse<const T: usize>(input: &[u8; T]) -> Result<Message, ParsingError> {
+pub fn parse(input: &[u8]) -> Result<Message, ParsingError> {
     let input_len = input.len() as u32;
 
     // check if we have a subsystem byte
@@ -37,26 +74,22 @@ pub const fn parse<const T: usize>(input: &[u8; T]) -> Result<Message, ParsingEr
             match part {
                 // wheel part
                 Wheels::PART_BYTE => {
-                    if let Err(e) = check_length(input_len, subsystem, part, 9) {
-                        Err(e)
-                    } else {
-                        Ok(Message::Wheels(Wheels::new(
-                            input[2], input[3], input[4], input[5], input[6], input[7], input[8],
-                        )))
-                    }
+                    check_length(input_len, subsystem, part, 9)?;
+
+                    Ok(Message::Wheels(Wheels::new(
+                        input[2], input[3], input[4], input[5], input[6], input[7], input[8],
+                    )))
                 }
 
                 // leds part
                 Led::PART_BYTE => {
-                    if let Err(e) = check_length(input_len, subsystem, part, 5) {
-                        Err(e)
-                    } else {
-                        Ok(Message::Led(Led {
-                            red: input[2],
-                            green: input[3],
-                            blue: input[4],
-                        }))
-                    }
+                    check_length(input_len, subsystem, part, 5)?;
+
+                    Ok(Message::Led(Led {
+                        red: input[2],
+                        green: input[3],
+                        blue: input[4],
+                    }))
                 }
 
                 malformed_part => {
@@ -67,46 +100,48 @@ pub const fn parse<const T: usize>(input: &[u8; T]) -> Result<Message, ParsingEr
         }
 
         Arm::SUBSYSTEM_BYTE => {
-            if let Err(e) = check_length(input_len, subsystem, 0x00, 8) {
-                Err(e)
-            } else {
-                let arm = Arm {
-                    bicep: input[1],
-                    forearm: input[2],
-                    base: input[3],
-                    wrist_pitch: input[4],
-                    wrist_roll: input[5],
-                    claw: input[6],
-                    checksum: input[7],
-                };
+            check_length(input_len, subsystem, 0x00, 8)?;
 
-                Ok(Message::Arm(arm))
-            }
+            let arm = Arm {
+                bicep: input[1],
+                forearm: input[2],
+                base: input[3],
+                wrist_pitch: input[4],
+                wrist_roll: input[5],
+                claw: input[6],
+                checksum: input[7],
+            };
+
+            Ok(Message::Arm(arm))
         }
 
         Science::SUBSYSTEM_BYTE => {
             // the given slice was malformed. 😖
-            if let Err(e) = check_length(input_len, subsystem, 0x0, 7) {
-                Err(e)
-            } else {
-                let sci = Science {
-                    big_actuator: input[1],
-                    drill: input[2],
-                    small_actuator: input[3],
-                    test_tubes: input[4],
-                    camera_servo: input[5],
-                    checksum: input[6],
-                };
+            check_length(input_len, subsystem, 0x0, 7)?;
 
-                Ok(Message::Science(sci))
-            }
+            let sci = Science {
+                big_actuator: input[1],
+                drill: input[2],
+                small_actuator: input[3],
+                test_tubes: input[4],
+                camera_servo: input[5],
+                checksum: input[6],
+            };
+
+            Ok(Message::Science(sci))
         }
 
-        malformed_subsys => {
-            // invalid input
-            Err(ParsingError::InvalidSubsystem(malformed_subsys))
-        }
+        // otherwise, we got invalid input
+        malformed_subsys => Err(ParsingError::InvalidSubsystem(malformed_subsys)),
     }
+}
+
+/// Parse an input slice into a valid message.
+#[pyfunction(name = "parse")]
+pub fn pyparse(input: &[u8]) -> PyResult<PyMessage> {
+    parse(input)
+        .map_err(|e| PyValueError::new_err(e.to_string()))
+        .map(|t| t.into())
 }
 
 /// Checks if the given input length is equal to the expected length. If so, returns `Ok(())`.
@@ -125,6 +160,7 @@ const fn check_length(
             subsystem,
             part,
             length: input_len,
+            expected_length: expected,
         })
     } else {
         Ok(())

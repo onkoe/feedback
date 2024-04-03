@@ -1,5 +1,9 @@
 use thiserror::Error;
 
+/// An error occuring while parsing a `Message`.
+///
+/// Doesn't appear in Python - they're cast to strings and raised
+/// as `ValueError`s.
 #[derive(Clone, Copy, Debug, Error, PartialEq, PartialOrd)]
 pub enum ParsingError {
     #[error("You must supply a slice with a length greater than zero.")]
@@ -11,7 +15,7 @@ pub enum ParsingError {
     #[error(
         "
         The given slice wasn't the correct length for subsystem \
-        `{subsystem:x}` on part {part:x}. Expected a slice of length 9, but got a \
+        `{subsystem:x}` on part {part:x}. Expected a slice of length `{expected_length}`, but got a \
         slice of length `{length}`.
     "
     )]
@@ -19,6 +23,7 @@ pub enum ParsingError {
         subsystem: u8,
         part: u8,
         length: u32,
+        expected_length: u32,
     },
     #[error("The given slice was malformed.")]
     MalformedMessage,
