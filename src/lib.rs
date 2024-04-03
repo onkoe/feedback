@@ -14,7 +14,6 @@
 //!
 //!
 
-use checksum::Checksum;
 use pyo3::prelude::*;
 
 pub mod checksum;
@@ -35,6 +34,7 @@ pub struct Wheels {
     pub checksum: u8,
 }
 
+#[pymethods]
 impl Wheels {
     pub const SUBSYSTEM_BYTE: u8 = 0x01;
     pub const PART_BYTE: u8 = 0x01;
@@ -43,6 +43,7 @@ impl Wheels {
     pub const NEURTAL_SPEED: u8 = 126;
 
     /// Creates a new `Wheels` object from the given values. Unchecked.
+    #[new]
     pub const fn new(
         wheel0: u8,
         wheel1: u8,
@@ -64,28 +65,23 @@ impl Wheels {
     }
 }
 
-impl Checksum for Wheels {
-    fn checksum(&self) -> u8 {
-        (self.wheel0 + self.wheel1 + self.wheel2 + self.wheel3 + self.wheel4 + self.wheel5) & 0xff
-    }
-
-    fn is_checksum_correct(&self) -> bool {
-        self.checksum == self.checksum()
-    }
-}
-
 /// The flashing LED on the top of the Rover
+#[pyclass]
 pub struct Led {
     pub red: u8,
     pub green: u8,
     pub blue: u8,
 }
 
+#[pymethods]
 impl Led {
     pub const SUBSYSTEM_BYTE: u8 = 0x01;
     pub const PART_BYTE: u8 = 0x02;
 }
 
+/// The little robotic arm on the sticking out of the Rover
+/// old capstooOOOone
+#[pyclass]
 pub struct Arm {
     pub bicep: u8,
     pub forearm: u8,
@@ -96,10 +92,14 @@ pub struct Arm {
     pub checksum: u8,
 }
 
+#[pymethods]
 impl Arm {
     pub const SUBSYSTEM_BYTE: u8 = 0x02;
 }
 
+/// The science package on the Rover, including the utilities needed to perform
+/// field experiments.
+#[pyclass]
 pub struct Science {
     big_actuator: u8,
     drill: u8,
@@ -109,6 +109,7 @@ pub struct Science {
     checksum: u8,
 }
 
+#[pymethods]
 impl Science {
     pub const SUBSYSTEM_BYTE: u8 = 0x03;
 }
