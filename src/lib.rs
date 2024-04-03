@@ -64,6 +64,10 @@ impl Wheels {
             checksum,
         }
     }
+
+    fn __str__(&self) -> PyResult<String> {
+        Ok(format!("{:?}", self))
+    }
 }
 
 /// The flashing LED on the top of the Rover
@@ -79,6 +83,10 @@ pub struct Led {
 impl Led {
     pub const SUBSYSTEM_BYTE: u8 = 0x01;
     pub const PART_BYTE: u8 = 0x02;
+
+    fn __str__(&self) -> PyResult<String> {
+        Ok(format!("{:?}", self))
+    }
 }
 
 /// The little robotic arm on the sticking out of the Rover
@@ -98,6 +106,10 @@ pub struct Arm {
 #[pymethods]
 impl Arm {
     pub const SUBSYSTEM_BYTE: u8 = 0x02;
+
+    fn __str__(&self) -> PyResult<String> {
+        Ok(format!("{:?}", self))
+    }
 }
 
 /// The science package on the Rover, including the utilities needed to perform
@@ -116,6 +128,10 @@ pub struct Science {
 #[pymethods]
 impl Science {
     pub const SUBSYSTEM_BYTE: u8 = 0x03;
+
+    fn __str__(&self) -> PyResult<String> {
+        Ok(format!("{:?}", self))
+    }
 }
 
 #[pymodule]

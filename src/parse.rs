@@ -7,6 +7,7 @@ use pyo3::{exceptions::PyValueError, prelude::*};
 use crate::{error::ParsingError, Arm, Led, Science, Wheels};
 
 /// Any kind of message that should be sent to/from the rover.
+#[derive(Debug, Clone, Copy)]
 pub enum Message {
     Wheels(Wheels),
     Led(Led),
@@ -17,11 +18,18 @@ pub enum Message {
 /// A PyO3-friendly version of the `Message` enum.
 #[doc(hidden)]
 #[pyclass]
+#[derive(Debug, Clone, Copy)]
 pub enum PyMessage {
     Wheels { wheels: Wheels },
     Led { led: Led },
     Arm { arm: Arm },
     Science { science: Science },
+}
+
+impl PyMessage {
+    fn __str__(&self) -> PyResult<String> {
+        Ok(format!("{:?}", self))
+    }
 }
 
 /// this is some nonsense... but it's required nonsense.
@@ -50,6 +58,11 @@ impl From<Message> for PyMessage {
 }
 
 /// Parse an input slice into a valid message.
+/// ```
+/// # use feedback::parse::parse;
+/// #
+/// assert!(parse(&[0x09]).is_err());
+/// ```
 pub fn parse(input: &[u8]) -> Result<Message, ParsingError> {
     let input_len = input.len() as u32;
 
