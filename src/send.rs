@@ -2,11 +2,15 @@
 
 // we need a type to store data about *where* to send info.
 
-use std::net::IpAddr;
+use std::net::{AddrParseError, IpAddr};
 
+use pyo3::{exceptions::PyException, prelude::*};
 use tokio::net::UdpSocket;
 
-use crate::{error::SendError, Arm, Led, Wheels};
+use crate::{
+    error::{SendError, SendException},
+    Arm, Led, Wheels,
+};
 
 /// An indicator of whether the request succeeded.
 ///
@@ -18,6 +22,7 @@ use crate::{error::SendError, Arm, Led, Wheels};
 type SendResult = Result<(), crate::error::SendError>;
 
 /// Controls the Rover.
+#[pyclass]
 pub struct RoverController {
     /// A socket to speak with the microcontroller that moves the Rover.
     socket: UdpSocket,
@@ -162,4 +167,43 @@ impl RoverController {
 
     // TODO: some helper fns for moving the rover (i.e. turning/etc.) might be
     // helpful in the future.
+}
+
+pyo3::create_exception!(error, IpParseException, PyException);
+
+pyo3::create_exception!(error, SocketConnectionException, PyException);
+
+#[pymethods]
+impl RoverController {
+    /// Creates a new [`RoverController`].
+    #[new]
+    pub fn py_new(ip: String, port: u16) -> PyResult<Self> {
+        let addr = ip
+            .parse()
+            .inspect_err(|e| {
+                tracing::warn!("Failed to parse the given `ip` as an IP address! err: {e}")
+            })
+            .map_err(|e: AddrParseError| IpParseException::new_err(e.to_string()))?;
+
+        futures_lite::future::block_on(Self::new(addr, port))
+            .map_err(|e| SocketConnectionException::new_err(e.to_string()))
+    }
+
+    /// Attempts to send the given wheel speeds.
+    pub fn py_send_wheels(&self, wheels: Wheels) -> PyResult<()> {
+        futures_lite::future::block_on(self.send_wheels(&wheels))
+            .map_err(|e| SendException::new_err(e.to_string()))
+    }
+
+    /// Attempts to send the given light color.
+    pub fn py_send_led(&self, wheels: Wheels) -> PyResult<()> {
+        futures_lite::future::block_on(self.send_wheels(&wheels))
+            .map_err(|e| SendException::new_err(e.to_string()))
+    }
+
+    /// Attempts to send... all that arm stuff.
+    pub fn py_send_arm(&self, wheels: Wheels) -> PyResult<()> {
+        futures_lite::future::block_on(self.send_wheels(&wheels))
+            .map_err(|e| SendException::new_err(e.to_string()))
+    }
 }

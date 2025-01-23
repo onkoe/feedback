@@ -1,3 +1,4 @@
+use pyo3::exceptions::PyException;
 use thiserror::Error;
 
 /// An error occuring while parsing a `Message`.
@@ -40,3 +41,5 @@ pub enum SendError {
     #[error("Failed to send a message! err: {0}")]
     SocketError(#[from] std::io::Error),
 }
+
+pyo3::create_exception!(error, SendException, PyException);
