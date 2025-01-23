@@ -190,18 +190,21 @@ impl RoverController {
     }
 
     /// Attempts to send the given wheel speeds.
+    #[pyo3(name = "send_wheels")]
     pub fn py_send_wheels(&self, wheels: Wheels) -> PyResult<()> {
         futures_lite::future::block_on(self.send_wheels(&wheels))
             .map_err(|e| SendException::new_err(e.to_string()))
     }
 
     /// Attempts to send the given light color.
+    #[pyo3(name = "send_led")]
     pub fn py_send_led(&self, wheels: Wheels) -> PyResult<()> {
         futures_lite::future::block_on(self.send_wheels(&wheels))
             .map_err(|e| SendException::new_err(e.to_string()))
     }
 
     /// Attempts to send... all that arm stuff.
+    #[pyo3(name = "send_arm")]
     pub fn py_send_arm(&self, wheels: Wheels) -> PyResult<()> {
         futures_lite::future::block_on(self.send_wheels(&wheels))
             .map_err(|e| SendException::new_err(e.to_string()))
