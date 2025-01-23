@@ -93,6 +93,7 @@ impl RoverController {
     }
 
     /// Attempts to send the given light color.
+    #[tracing::instrument(skip(self))]
     pub async fn send_led(&self, lights: &Led) -> SendResult {
         let mut message: [u8; 5] = [0x0; 5];
 
@@ -123,6 +124,7 @@ impl RoverController {
     }
 
     /// Attempts to send... all that arm stuff.
+    #[tracing::instrument(skip(self))]
     pub async fn send_arm(&self, arm: &Arm) -> SendResult {
         let mut message: [u8; 8] = [0x0; 8];
 
