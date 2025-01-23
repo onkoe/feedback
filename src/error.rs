@@ -28,3 +28,15 @@ pub enum ParsingError {
     #[error("The given slice was malformed.")]
     MalformedMessage,
 }
+
+/// An error that can occur when sending messages to the Rover.
+#[derive(Debug, Error)]
+pub enum SendError {
+    /// The validation of the message failed!
+    #[error("Message validation failed! err: {0}")]
+    MessageFailedValidation(#[from] ParsingError),
+
+    /// Sending it with the socket resulted in an error.
+    #[error("Failed to send a message! err: {0}")]
+    SocketError(#[from] std::io::Error),
+}

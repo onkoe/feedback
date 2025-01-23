@@ -11,14 +11,17 @@
 //! [u8; 9]: [0x01 (wheels subsystem), 0x01 (wheels part), ]
 //!
 //! subsystem byte, part byte (optional); etc.
-//!
-//!
 
 use pyo3::prelude::*;
 
 pub mod checksum;
 pub mod error;
 pub mod parse;
+pub mod send;
+
+pub mod prelude {
+    pub use super::send::RoverController;
+}
 
 /// For the Rover, the Wheels struct represents the current state of each of the six wheels.
 /// Each `wheelx` value is a u8, with the neutral position being 126.
