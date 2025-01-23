@@ -210,3 +210,18 @@ impl RoverController {
             .map_err(|e| SendException::new_err(e.to_string()))
     }
 }
+
+#[pymodule(submodule)]
+fn send(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    // add the rover controller
+    m.add_class::<RoverController>()?;
+
+    // and the exceptions here
+    m.add("IpParseException", m.py().get_type::<IpParseException>())?;
+    m.add(
+        "SocketConnectionException",
+        m.py().get_type::<SocketConnectionException>(),
+    )?;
+
+    Ok(())
+}
