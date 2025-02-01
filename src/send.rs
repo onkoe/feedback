@@ -2,7 +2,7 @@
 
 // we need a type to store data about *where* to send info.
 
-use std::net::{AddrParseError, IpAddr};
+use std::net::{AddrParseError, IpAddr, Ipv4Addr};
 
 use pyo3::{exceptions::PyException, prelude::*};
 use tokio::net::UdpSocket;
@@ -38,17 +38,29 @@ impl RoverController {
     /// use core::net::{IpAddr, Ipv4Addr};
     ///
     /// // replace these with the actual ip/port of the microcontroller!
-    /// let (ip, port): (Ipv4Addr, u16) = (Ipv4Addr::new(192, 168, 1, 101), 1001);
+    /// //
+    /// // the local port is what we bind to on the Orin.
+    /// let (ebox_ip, ebox_port, local_port): (IpAddr, u16) = (IpAddr::V4(Ipv4Addr::UNSPECIFIED)), 1001, 6666);
     ///
     /// // this creates the controller. use the various `ctrl.send` methods to
     /// // use it properly!
-    /// let ctrl: RoverController = RoverController::new(IpAddr::V4(ip), port);
+    /// let ctrl: RoverController = RoverController::new(ebox_ip, ebox_port, local_port);
     /// ```
     #[tracing::instrument]
-    pub async fn new(ip: IpAddr, port: u16) -> Result<Self, std::io::Error> {
-        let socket = UdpSocket::bind(format!("{ip}:{port}"))
+    pub async fn new(
+        ebox_ip: IpAddr,
+        ebox_port: u16,
+        local_port: u16,
+    ) -> Result<Self, std::io::Error> {
+        let socket = UdpSocket::bind((IpAddr::V4(Ipv4Addr::UNSPECIFIED), local_port))
             .await
-            .inspect_err(|e| tracing::warn!("Failed to connect to the given socket! err: {e}"))?;
+            .inspect_err(|e| tracing::warn!("Failed to bind to the local port! err: {e}"))?;
+
+        // connect to the ebox
+        socket
+            .connect((ebox_ip, ebox_port))
+            .await
+            .inspect_err(|e| tracing::error!("Failed to connect to the ebox! err: {e}"))?;
 
         // socket was created successfully if we're still running!
         //
@@ -177,15 +189,15 @@ pyo3::create_exception!(error, SocketConnectionException, PyException);
 impl RoverController {
     /// Creates a new [`RoverController`].
     #[new]
-    pub fn py_new(ip: String, port: u16) -> PyResult<Self> {
-        let addr = ip
+    pub fn py_new(ebox_ip: String, ebox_port: u16, local_port: u16) -> PyResult<Self> {
+        let addr = ebox_ip
             .parse()
             .inspect_err(|e| {
                 tracing::warn!("Failed to parse the given `ip` as an IP address! err: {e}")
             })
             .map_err(|e: AddrParseError| IpParseException::new_err(e.to_string()))?;
 
-        futures_lite::future::block_on(Self::new(addr, port))
+        futures_lite::future::block_on(Self::new(addr, ebox_port, local_port))
             .map_err(|e| SocketConnectionException::new_err(e.to_string()))
     }
 
