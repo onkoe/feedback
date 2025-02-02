@@ -2,8 +2,6 @@
 //!
 //! A module that parses a given slice into a valid message.
 
-use pyo3::{exceptions::PyValueError, prelude::*};
-
 use crate::{error::ParsingError, Arm, Led, Science, Wheels};
 
 /// Any kind of message that should be sent to/from the rover.
@@ -13,48 +11,6 @@ pub enum Message {
     Led(Led),
     Arm(Arm),
     Science(Science),
-}
-
-/// A PyO3-friendly version of the `Message` enum.
-#[doc(hidden)]
-#[pyclass]
-#[derive(Debug, Clone, Copy)]
-pub enum PyMessage {
-    Wheels { wheels: Wheels },
-    Led { led: Led },
-    Arm { arm: Arm },
-    Science { science: Science },
-}
-
-impl PyMessage {
-    fn __str__(&self) -> PyResult<String> {
-        Ok(format!("{:?}", self))
-    }
-}
-
-/// this is some nonsense... but it's required nonsense.
-/// see [pyo3 issue #3748](https://github.com/PyO3/pyo3/issues/3748) for info
-impl From<PyMessage> for Message {
-    fn from(val: PyMessage) -> Self {
-        match val {
-            PyMessage::Wheels { wheels } => Message::Wheels(wheels),
-            PyMessage::Led { led } => Message::Led(led),
-            PyMessage::Arm { arm } => Message::Arm(arm),
-            PyMessage::Science { science } => Message::Science(science),
-        }
-    }
-}
-
-/// again. nonsense
-impl From<Message> for PyMessage {
-    fn from(val: Message) -> Self {
-        match val {
-            Message::Wheels(wheels) => PyMessage::Wheels { wheels },
-            Message::Led(led) => PyMessage::Led { led },
-            Message::Arm(arm) => PyMessage::Arm { arm },
-            Message::Science(science) => PyMessage::Science { science },
-        }
-    }
 }
 
 /// Parse an input slice into a valid message.
@@ -149,14 +105,6 @@ pub fn parse(input: &[u8]) -> Result<Message, ParsingError> {
     }
 }
 
-/// Parse an input slice into a valid message.
-#[pyfunction(name = "parse")]
-pub fn pyparse(input: &[u8]) -> PyResult<PyMessage> {
-    parse(input)
-        .map_err(|e| PyValueError::new_err(e.to_string()))
-        .map(|t| t.into())
-}
-
 /// Checks if the given input length is equal to the expected length. If so, returns `Ok(())`.
 /// Otherwise, returns a `ParsingError::LengthInconsistency` error.
 ///
@@ -176,6 +124,74 @@ const fn check_length(
             expected_length: expected,
         })
     } else {
+        Ok(())
+    }
+}
+
+#[cfg(feature = "python")]
+mod python {
+    use pyo3::{exceptions::PyValueError, prelude::*};
+
+    use crate::{Arm, Led, Science, Wheels};
+
+    use super::Message;
+
+    /// A PyO3-friendly version of the `Message` enum.
+    #[doc(hidden)]
+    #[cfg_attr(feature = "python", pyo3::pyclass)]
+    #[derive(Debug, Clone, Copy)]
+    pub enum PyMessage {
+        Wheels { wheels: Wheels },
+        Led { led: Led },
+        Arm { arm: Arm },
+        Science { science: Science },
+    }
+
+    impl PyMessage {
+        fn __str__(&self) -> PyResult<String> {
+            Ok(format!("{:?}", self))
+        }
+    }
+
+    /// this is some nonsense... but it's required nonsense.
+    /// see [pyo3 issue #3748](https://github.com/PyO3/pyo3/issues/3748) for info
+    impl From<PyMessage> for Message {
+        fn from(val: PyMessage) -> Self {
+            match val {
+                PyMessage::Wheels { wheels } => Message::Wheels(wheels),
+                PyMessage::Led { led } => Message::Led(led),
+                PyMessage::Arm { arm } => Message::Arm(arm),
+                PyMessage::Science { science } => Message::Science(science),
+            }
+        }
+    }
+
+    /// again. nonsense
+    impl From<Message> for PyMessage {
+        fn from(val: Message) -> Self {
+            match val {
+                Message::Wheels(wheels) => PyMessage::Wheels { wheels },
+                Message::Led(led) => PyMessage::Led { led },
+                Message::Arm(arm) => PyMessage::Arm { arm },
+                Message::Science(science) => PyMessage::Science { science },
+            }
+        }
+    }
+
+    /// Parse an input slice into a valid message.
+    #[cfg_attr(feature = "python", pyfunction(name = "parse"))]
+    pub fn pyparse(input: &[u8]) -> PyResult<PyMessage> {
+        super::parse(input)
+            .map_err(|e| PyValueError::new_err(e.to_string()))
+            .map(|t| t.into())
+    }
+
+    // export as module
+    #[pymodule]
+    fn parse(m: &Bound<'_, PyModule>) -> PyResult<()> {
+        m.add_class::<PyMessage>()?;
+        m.add_function(wrap_pyfunction!(pyparse, m)?)?;
+
         Ok(())
     }
 }
