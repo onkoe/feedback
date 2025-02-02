@@ -48,15 +48,17 @@ impl RoverController {
         ebox_port: u16,
         local_port: u16,
     ) -> Result<Self, std::io::Error> {
-        let socket = UdpSocket::bind((IpAddr::V4(Ipv4Addr::UNSPECIFIED), local_port))
+        let socket = UdpSocket::bind((Ipv4Addr::LOCALHOST, local_port))
             .await
-            .inspect_err(|e| tracing::warn!("Failed to bind to the local port! err: {e}"))?;
+            .inspect_err(|e| tracing::warn!("Failed to bind to the local port! err: {e}"))
+            .inspect(|_| tracing::debug!("Bound to port successfully."))?;
 
         // connect to the ebox
         socket
             .connect((ebox_ip, ebox_port))
             .await
-            .inspect_err(|e| tracing::error!("Failed to connect to the ebox! err: {e}"))?;
+            .inspect_err(|e| tracing::error!("Failed to connect to the ebox! err: {e}"))
+            .inspect(|_| tracing::debug!("Connected to ebox successfully."))?;
 
         // socket was created successfully if we're still running!
         //
@@ -101,6 +103,7 @@ impl RoverController {
             .send(&message)
             .await
             .inspect_err(|e| tracing::error!("Failed to send wheel speeds! err: {e}"))
+            .inspect(|bytes_sent| tracing::debug!("Sent {bytes_sent} bytes!"))
             .map(|_bytes_sent| ())
             .map_err(SendError::SocketError)
     }
@@ -132,6 +135,7 @@ impl RoverController {
             .send(&message)
             .await
             .inspect_err(|e| tracing::error!("Failed to send light color! err: {e}"))
+            .inspect(|bytes_sent| tracing::debug!("Sent {bytes_sent} bytes!"))
             .map(|_bytes_sent| ())
             .map_err(SendError::SocketError)
     }
@@ -169,6 +173,7 @@ impl RoverController {
             .send(&message)
             .await
             .inspect_err(|e| tracing::error!("Failed to send arm controls! err: {e}"))
+            .inspect(|bytes_sent| tracing::debug!("Sent {bytes_sent} bytes!"))
             .map(|_bytes_sent| ())
             .map_err(SendError::SocketError)
     }
@@ -242,5 +247,66 @@ mod python {
         )?;
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{
+        net::Ipv4Addr,
+        time::{Duration, Instant},
+    };
+
+    use super::RoverController;
+    use crate::Led;
+
+    #[tokio::test]
+    async fn stuff_is_sent() {
+        tracing_subscriber::fmt()
+            .with_max_level(tracing::Level::DEBUG)
+            .init();
+
+        let controller = RoverController::new(Ipv4Addr::LOCALHOST.into(), 5003, 6666)
+            .await
+            .unwrap();
+
+        // constantly send lights on background thread
+        tokio::task::spawn(async move {
+            let controller = controller;
+
+            let lights = Led {
+                red: 255,
+                green: 0,
+                blue: 0,
+            };
+
+            // send that shi forever
+            loop {
+                controller.send_led(&lights).await.unwrap();
+                tracing::debug!("Sent lights.");
+                tokio::time::sleep(Duration::from_millis(100)).await;
+            }
+        });
+
+        let mut buf = vec![0x0; 32];
+        let start_time: Instant = Instant::now();
+        let recvr_socket = tokio::net::UdpSocket::bind((Ipv4Addr::LOCALHOST, 5003))
+            .await
+            .unwrap();
+
+        // try for 10s to get at least one message.
+        //
+        // early-return if we do get one to avoid the panic.
+        while start_time.elapsed() < Duration::from_secs(10) {
+            recvr_socket.recv(&mut buf).await.unwrap();
+
+            if !buf.is_empty() {
+                println!("oh hey, got some bytes: {buf:#?}");
+                return;
+            }
+        }
+
+        // we shoulda returned by now! so panic if the test makes it here.
+        panic!("stuff wasn't sent! we ran outta time (10s).");
     }
 }
