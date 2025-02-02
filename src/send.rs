@@ -2,15 +2,11 @@
 
 // we need a type to store data about *where* to send info.
 
-use std::net::{AddrParseError, IpAddr, Ipv4Addr};
+use std::net::{IpAddr, Ipv4Addr};
 
-use pyo3::{exceptions::PyException, prelude::*};
 use tokio::net::UdpSocket;
 
-use crate::{
-    error::{SendError, SendException},
-    Arm, Led, Wheels,
-};
+use crate::{error::SendError, Arm, Led, Wheels};
 
 /// An indicator of whether the request succeeded.
 ///
@@ -22,7 +18,7 @@ use crate::{
 type SendResult = Result<(), crate::error::SendError>;
 
 /// Controls the Rover.
-#[pyclass]
+#[cfg_attr(feature = "python", pyo3::pyclass)]
 pub struct RoverController {
     /// A socket to speak with the microcontroller that moves the Rover.
     socket: UdpSocket,
@@ -181,59 +177,70 @@ impl RoverController {
     // helpful in the future.
 }
 
-pyo3::create_exception!(error, IpParseException, PyException);
+/// Handles the Python bindings.
+#[cfg(feature = "python")]
+mod python {
+    use std::net::AddrParseError;
 
-pyo3::create_exception!(error, SocketConnectionException, PyException);
+    use pyo3::{exceptions::PyException, prelude::*};
 
-#[pymethods]
-impl RoverController {
-    /// Creates a new [`RoverController`].
-    #[new]
-    pub fn py_new(ebox_ip: String, ebox_port: u16, local_port: u16) -> PyResult<Self> {
-        let addr = ebox_ip
-            .parse()
-            .inspect_err(|e| {
-                tracing::warn!("Failed to parse the given `ip` as an IP address! err: {e}")
-            })
-            .map_err(|e: AddrParseError| IpParseException::new_err(e.to_string()))?;
+    use crate::{error::SendException, Arm, Led, Wheels};
 
-        futures_lite::future::block_on(Self::new(addr, ebox_port, local_port))
-            .map_err(|e| SocketConnectionException::new_err(e.to_string()))
+    use super::RoverController;
+
+    pyo3::create_exception!(error, IpParseException, PyException);
+    pyo3::create_exception!(error, SocketConnectionException, PyException);
+
+    #[pymethods]
+    impl RoverController {
+        /// Creates a new [`RoverController`].
+        #[new]
+        pub fn py_new(ebox_ip: String, ebox_port: u16, local_port: u16) -> PyResult<Self> {
+            let addr = ebox_ip
+                .parse()
+                .inspect_err(|e| {
+                    tracing::warn!("Failed to parse the given `ip` as an IP address! err: {e}")
+                })
+                .map_err(|e: AddrParseError| IpParseException::new_err(e.to_string()))?;
+
+            futures_lite::future::block_on(Self::new(addr, ebox_port, local_port))
+                .map_err(|e| SocketConnectionException::new_err(e.to_string()))
+        }
+
+        /// Attempts to send the given wheel speeds.
+        #[pyo3(name = "send_wheels")]
+        pub fn py_send_wheels(&self, wheels: Wheels) -> PyResult<()> {
+            futures_lite::future::block_on(self.send_wheels(&wheels))
+                .map_err(|e| SendException::new_err(e.to_string()))
+        }
+
+        /// Attempts to send the given light color.
+        #[pyo3(name = "send_led")]
+        pub fn py_send_led(&self, led: Led) -> PyResult<()> {
+            futures_lite::future::block_on(self.send_led(&led))
+                .map_err(|e| SendException::new_err(e.to_string()))
+        }
+
+        /// Attempts to send... all that arm stuff.
+        #[pyo3(name = "send_arm")]
+        pub fn py_send_arm(&self, arm: Arm) -> PyResult<()> {
+            futures_lite::future::block_on(self.send_arm(&arm))
+                .map_err(|e| SendException::new_err(e.to_string()))
+        }
     }
 
-    /// Attempts to send the given wheel speeds.
-    #[pyo3(name = "send_wheels")]
-    pub fn py_send_wheels(&self, wheels: Wheels) -> PyResult<()> {
-        futures_lite::future::block_on(self.send_wheels(&wheels))
-            .map_err(|e| SendException::new_err(e.to_string()))
+    #[pymodule(submodule)]
+    fn send(m: &Bound<'_, PyModule>) -> PyResult<()> {
+        // add the rover controller
+        m.add_class::<RoverController>()?;
+
+        // and the exceptions here
+        m.add("IpParseException", m.py().get_type::<IpParseException>())?;
+        m.add(
+            "SocketConnectionException",
+            m.py().get_type::<SocketConnectionException>(),
+        )?;
+
+        Ok(())
     }
-
-    /// Attempts to send the given light color.
-    #[pyo3(name = "send_led")]
-    pub fn py_send_led(&self, wheels: Wheels) -> PyResult<()> {
-        futures_lite::future::block_on(self.send_wheels(&wheels))
-            .map_err(|e| SendException::new_err(e.to_string()))
-    }
-
-    /// Attempts to send... all that arm stuff.
-    #[pyo3(name = "send_arm")]
-    pub fn py_send_arm(&self, wheels: Wheels) -> PyResult<()> {
-        futures_lite::future::block_on(self.send_wheels(&wheels))
-            .map_err(|e| SendException::new_err(e.to_string()))
-    }
-}
-
-#[pymodule(submodule)]
-fn send(m: &Bound<'_, PyModule>) -> PyResult<()> {
-    // add the rover controller
-    m.add_class::<RoverController>()?;
-
-    // and the exceptions here
-    m.add("IpParseException", m.py().get_type::<IpParseException>())?;
-    m.add(
-        "SocketConnectionException",
-        m.py().get_type::<SocketConnectionException>(),
-    )?;
-
-    Ok(())
 }
