@@ -48,7 +48,7 @@ impl RoverController {
         ebox_port: u16,
         local_port: u16,
     ) -> Result<Self, std::io::Error> {
-        let socket = UdpSocket::bind((Ipv4Addr::LOCALHOST, local_port))
+        let socket = UdpSocket::bind((Ipv4Addr::UNSPECIFIED, local_port))
             .await
             .inspect_err(|e| tracing::warn!("Failed to bind to the local port! err: {e}"))
             .inspect(|_| tracing::debug!("Bound to port successfully."))?;
