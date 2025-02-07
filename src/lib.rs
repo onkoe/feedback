@@ -114,6 +114,31 @@ impl Science {
     pub const SUBSYSTEM_BYTE: u8 = 0x03;
 }
 
+/// Data about the three paired sensors. Sent from the E-box microcontroller
+/// to the Jetson Orin Nano.
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[repr(C)]
+pub struct Imu {
+    // accel
+    pub accel_x: f64,
+    pub accel_y: f64,
+    pub accel_z: f64,
+
+    // gyro
+    pub gyro_x: f64,
+    pub gyro_y: f64,
+    pub gyro_z: f64,
+
+    // compass
+    pub compass_x: f64,
+    pub compass_y: f64,
+    pub compass_z: f64,
+}
+
+impl Imu {
+    pub const SUBSYSTEM_BYTE: u8 = 0x04; // FIXME: ask electrical
+}
+
 /// Python stuff.
 #[cfg(feature = "python")]
 mod python {
