@@ -2,7 +2,7 @@
 //!
 //! A module that parses a given slice into a valid message.
 
-use crate::{error::ParsingError, Arm, Led, Science, Wheels};
+use crate::{error::ParsingError, Arm, Imu, Led, Science, Wheels};
 
 /// Any kind of message that should be sent to/from the rover.
 #[derive(Debug, Clone, Copy)]
@@ -11,6 +11,7 @@ pub enum Message {
     Led(Led),
     Arm(Arm),
     Science(Science),
+    Imu(Imu),
 }
 
 /// Parse an input slice into a valid message.
@@ -85,7 +86,6 @@ pub fn parse(input: &[u8]) -> Result<Message, ParsingError> {
         }
 
         Science::SUBSYSTEM_BYTE => {
-            // the given slice was malformed. 😖
             check_length(input_len, subsystem, 0x0, 7)?;
 
             let sci = Science {
@@ -98,6 +98,37 @@ pub fn parse(input: &[u8]) -> Result<Message, ParsingError> {
             };
 
             Ok(Message::Science(sci))
+        }
+
+        Imu::SUBSYSTEM_BYTE => {
+            // three floats for three vectors. each is eight bytes
+            //
+            // FIXME: we don't currently get a temp_c, so that's just gonna be
+            // zero for now...
+            const EXPECTED_LENGTH: u32 = 1 + (3 * 3 * 8);
+            check_length(input_len, subsystem, 0x0, EXPECTED_LENGTH)?;
+
+            // note: each float is eight bytes
+            let imu = Imu {
+                accel_x: f64::from_ne_bytes(input[1..9].try_into().unwrap()),
+                accel_y: f64::from_ne_bytes(input[9..17].try_into().unwrap()),
+                accel_z: f64::from_ne_bytes(input[17..25].try_into().unwrap()),
+
+                gyro_x: f64::from_ne_bytes(input[25..33].try_into().unwrap()),
+                gyro_y: f64::from_ne_bytes(input[33..41].try_into().unwrap()),
+                gyro_z: f64::from_ne_bytes(input[41..49].try_into().unwrap()),
+
+                compass_x: f64::from_ne_bytes(input[49..57].try_into().unwrap()),
+                compass_y: f64::from_ne_bytes(input[57..65].try_into().unwrap()),
+                compass_z: f64::from_ne_bytes(input[65..73].try_into().unwrap()),
+
+                temp_c: {
+                    tracing::warn!("temp c is not currently provided by electrical");
+                    0.0_f64
+                },
+            };
+
+            Ok(Message::Imu(imu))
         }
 
         // otherwise, we got invalid input
@@ -132,7 +163,7 @@ const fn check_length(
 mod python {
     use pyo3::{exceptions::PyValueError, prelude::*};
 
-    use crate::{Arm, Led, Science, Wheels};
+    use crate::{Arm, Imu, Led, Science, Wheels};
 
     use super::Message;
 
@@ -145,6 +176,7 @@ mod python {
         Led { led: Led },
         Arm { arm: Arm },
         Science { science: Science },
+        Imu { imu: Imu },
     }
 
     impl PyMessage {
@@ -162,6 +194,7 @@ mod python {
                 PyMessage::Led { led } => Message::Led(led),
                 PyMessage::Arm { arm } => Message::Arm(arm),
                 PyMessage::Science { science } => Message::Science(science),
+                PyMessage::Imu { imu } => Message::Imu(imu),
             }
         }
     }
@@ -174,6 +207,7 @@ mod python {
                 Message::Led(led) => PyMessage::Led { led },
                 Message::Arm(arm) => PyMessage::Arm { arm },
                 Message::Science(science) => PyMessage::Science { science },
+                Message::Imu(imu) => PyMessage::Imu { imu },
             }
         }
     }
@@ -193,5 +227,46 @@ mod python {
         m.add_function(wrap_pyfunction!(pyparse, m)?)?;
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::parse::Message;
+
+    #[test]
+    fn parse_imu_msg() {
+        let imu_msg: [&[u8]; 10] = [
+            // subsystem byte
+            //
+            &[0x04],
+            // accel
+            &1.0241_f64.to_ne_bytes(),
+            &5.135_f64.to_ne_bytes(),
+            &0.153_f64.to_ne_bytes(),
+            //
+            // gyro
+            &0.01523_f64.to_ne_bytes(),
+            &0.6241_f64.to_ne_bytes(),
+            &0.1_f64.to_ne_bytes(),
+            //
+            // compass
+            &310_f64.to_ne_bytes(),
+            &162.1_f64.to_ne_bytes(),
+            &9.15602_f64.to_ne_bytes(),
+        ];
+
+        let imu_msg = imu_msg.into_iter().flatten().copied().collect::<Vec<u8>>();
+
+        // parse it
+        let parsed_imu_msg = super::parse(&imu_msg).expect("parse should succeed");
+        let Message::Imu(imu) = parsed_imu_msg else {
+            panic!("parser didn't recognize bytes as an imu message");
+        };
+
+        // check a value in each
+        assert_eq!(imu.accel_x, 1.0241_f64);
+        assert_eq!(imu.gyro_y, 0.6241_f64);
+        assert_eq!(imu.compass_z, 9.15602_f64);
     }
 }

@@ -33,14 +33,20 @@ impl RoverController {
     /// use feedback::prelude::*;
     /// use core::net::{IpAddr, Ipv4Addr};
     ///
+    /// # #[tokio::main(flavor = "current_thread")]
+    /// # async fn main() {
     /// // replace these with the actual ip/port of the microcontroller!
     /// //
     /// // the local port is what we bind to on the Orin.
-    /// let (ebox_ip, ebox_port, local_port): (IpAddr, u16) = (IpAddr::V4(Ipv4Addr::UNSPECIFIED)), 1001, 6666);
+    /// let (ebox_ip, ebox_port, local_port): (IpAddr, u16, u16) = (IpAddr::V4(Ipv4Addr::UNSPECIFIED), 1001, 6666);
     ///
     /// // this creates the controller. use the various `ctrl.send` methods to
     /// // use it properly!
-    /// let ctrl: RoverController = RoverController::new(ebox_ip, ebox_port, local_port);
+    /// let ctrl: RoverController = futures_lite::future::block_on(
+    ///         RoverController::new(ebox_ip, ebox_port, local_port)
+    ///     )
+    ///     .unwrap();
+    /// # }
     /// ```
     #[tracing::instrument]
     pub async fn new(

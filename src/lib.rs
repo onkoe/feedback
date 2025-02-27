@@ -116,6 +116,7 @@ impl Science {
 
 /// Data about the three paired sensors. Sent from the E-box microcontroller
 /// to the Jetson Orin Nano.
+#[cfg_attr(feature = "python", pyo3::pyclass)]
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[repr(C)]
 pub struct Imu {
@@ -133,10 +134,13 @@ pub struct Imu {
     pub compass_x: f64,
     pub compass_y: f64,
     pub compass_z: f64,
+
+    // temperature
+    pub temp_c: f64,
 }
 
 impl Imu {
-    pub const SUBSYSTEM_BYTE: u8 = 0x04; // FIXME: ask electrical
+    pub const SUBSYSTEM_BYTE: u8 = 0x04;
 }
 
 /// Python stuff.
@@ -144,7 +148,7 @@ impl Imu {
 mod python {
     use pyo3::prelude::*;
 
-    use crate::{Arm, Led, Science, Wheels};
+    use crate::{Arm, Imu, Led, Science, Wheels};
 
     #[pymethods]
     impl Wheels {
@@ -191,6 +195,13 @@ mod python {
 
     #[pymethods]
     impl Science {
+        fn __str__(&self) -> PyResult<String> {
+            Ok(format!("{:?}", self))
+        }
+    }
+
+    #[pymethods]
+    impl Imu {
         fn __str__(&self) -> PyResult<String> {
             Ok(format!("{:?}", self))
         }
