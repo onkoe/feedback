@@ -44,11 +44,9 @@ pub fn parse(input: &[u8]) -> Result<Message, ParsingError> {
             match part {
                 // wheel part
                 Wheels::PART_BYTE => {
-                    check_length(input_len, subsystem, part, 9)?;
+                    check_length(input_len, subsystem, part, 5)?;
 
-                    Ok(Message::Wheels(Wheels::new(
-                        input[2], input[3], input[4], input[5], input[6], input[7], input[8],
-                    )))
+                    Ok(Message::Wheels(Wheels::new(input[2], input[3])))
                 }
 
                 // leds part

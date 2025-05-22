@@ -75,7 +75,7 @@ impl RoverController {
     /// Attempts to send the given wheel speeds.
     #[tracing::instrument(skip(self))]
     pub async fn send_wheels(&self, wheels: &Wheels) -> SendResult {
-        let mut message: [u8; 9] = [0x0; 9];
+        let mut message: [u8; 5] = [0x0; 5];
 
         // start with subsystem byte.
         // wheels is `0x01`, so...
@@ -85,15 +85,11 @@ impl RoverController {
         message[1] = Wheels::PART_BYTE;
 
         // each speed can be added directly...
-        message[2] = wheels.wheel0;
-        message[3] = wheels.wheel1;
-        message[4] = wheels.wheel2;
-        message[5] = wheels.wheel3;
-        message[6] = wheels.wheel4;
-        message[7] = wheels.wheel5;
+        message[2] = wheels.left;
+        message[3] = wheels.right;
 
-        // add the checksum. no clue if electrical actually uses it lol
-        message[8] = wheels.checksum;
+        // add the checksum
+        message[4] = wheels.checksum;
 
         // check the message validity
         crate::parse::parse(message.as_slice()).inspect_err(|e| {

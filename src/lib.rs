@@ -26,13 +26,8 @@ pub mod prelude {
 #[cfg_attr(feature = "python", pyo3::pyclass)]
 #[derive(Debug, Clone, Copy)]
 pub struct Wheels {
-    pub wheel0: u8,
-    pub wheel1: u8,
-    pub wheel2: u8,
-    pub wheel3: u8,
-    pub wheel4: u8,
-    pub wheel5: u8,
-    /// The sum of the current wheel speeds.
+    pub left: u8,
+    pub right: u8,
     pub checksum: u8,
 }
 
@@ -43,24 +38,14 @@ impl Wheels {
     /// The motor value at which a motor isn't moving.
     pub const NEURTAL_SPEED: u8 = 126;
 
-    /// Creates a new `Wheels`. Unchecked.
-    pub const fn new(
-        wheel0: u8,
-        wheel1: u8,
-        wheel2: u8,
-        wheel3: u8,
-        wheel4: u8,
-        wheel5: u8,
-        checksum: u8,
-    ) -> Self {
+    /// Creates a new `Wheels`.
+    pub const fn new(left: u8, right: u8) -> Self {
         Self {
-            wheel0,
-            wheel1,
-            wheel2,
-            wheel3,
-            wheel4,
-            wheel5,
-            checksum,
+            left,
+            right,
+
+            // see electrical ebox teensy code
+            checksum: 255 - (left + right),
         }
     }
 }

@@ -19,16 +19,9 @@ pub trait Checksum<const T: usize> {
     fn is_checksum_correct(&self) -> bool;
 }
 
-impl Checksum<6> for Wheels {
-    fn to_checksum_array(&self) -> [u8; 6] {
-        [
-            self.wheel0,
-            self.wheel1,
-            self.wheel2,
-            self.wheel3,
-            self.wheel4,
-            self.wheel5,
-        ]
+impl Checksum<2> for Wheels {
+    fn to_checksum_array(&self) -> [u8; 2] {
+        [self.left, self.right]
     }
 
     fn is_checksum_correct(&self) -> bool {
