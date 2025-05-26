@@ -1,3 +1,5 @@
+**ARCHIVED**: this is now available within the Sooner Rover Team's [`auto_ros2` repo](https://github.com/Sooner-Rover-Team/auto_ros2/tree/1798c6f06cbf9301d7b2a49b6c6364e4cff91268/lib/feedback) 
+
 # feedback
 
 This is a cross-platform library intended to deserialize the Rover's various message types into their raw bytes for external usage.
